@@ -39,7 +39,27 @@ b = -GA_fun(E) # right-hand side
 e, _=sp.cg(A=sp.LinearOperator(shape=(ndof, ndof), matvec=GA_fun, dtype='float'), b=b)
 
 aux = e+E.reshape(-1)
-print('auxiliary field for macroscopic load E = {1}:\n{0}'.format(e.reshape(vec_shape),
+print('auxiliary field for macroscopic load E = {1}:\n{0}'.format(aux.reshape(vec_shape),
                                                                   format((1,)+(ndim-1)*(0,))))
 print('homogenised properties A11 = {}'.format(np.inner(A_fun(aux).reshape(-1), aux)/prodN))
+
+###########################################################################
+# VARIANT OF DIFFUSION WITHOUT fft.shift
+axes=np.arange(1,ndim+1)
+dot21  = lambda A,v: np.einsum('ij...,j...  ->i...',A,v)
+fft    = lambda V: np.fft.fftshift(np.fft.fftn(V,N), axes=axes)
+ifft   = lambda V: np.fft.ifftn(np.fft.ifftshift(V, axes=axes),N)
+G_fun  = lambda V: np.real(ifft(dot21(Ghat,fft(V)))).reshape(-1)
+A_fun  = lambda v: dot21(A,v.reshape(vec_shape))
+GA_fun = lambda v: G_fun(A_fun(v))
+
+# conjugate gradient solver
+b = -GA_fun(E) # right-hand side
+e, _=sp.cg(A=sp.LinearOperator(shape=(ndof, ndof), matvec=GA_fun, dtype='float'), b=b)
+
+aux = e+E.reshape(-1)
+print('auxiliary field for macroscopic load E = {1}:\n{0}'.format(aux.reshape(vec_shape),
+                                                                  format((1,)+(ndim-1)*(0,))))
+print('homogenised properties A11 = {}'.format(np.inner(A_fun(aux).reshape(-1), aux)/prodN))
+
 print('END')
